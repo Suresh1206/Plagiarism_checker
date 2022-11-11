@@ -39,7 +39,7 @@ class auto(db.Model):
 
 @app.route("/")
 def home():
-    return render_template("sl.html")
+    return render_template("login.html")
 
 @app.route("/uploadd")
 def uploadd():
@@ -66,14 +66,13 @@ def login():
 @app.route('/admin')
 def admin():
     all_details = auto.query.filter(auto.role=='NULL')
-    return render_template("view.html",all_detail=all_details)
+    lens=auto.query.filter(auto.role=='NULL').count()
+    return render_template("view.html",all_detail=all_details,len=lens)
 
 @app.route('/acc',methods=['POST'])
 def acc():
     uid = request.form["userid"]
     urole = request.form["role"]
-    print(uid)
-    print(urole)
     if urole=="remove":
         auto.query.filter_by(userid=uid).delete()
         db.session.commit()
@@ -81,6 +80,9 @@ def acc():
 
     ad = auto.query.filter_by(userid = uid).first()
     ad.role = urole
+    if(urole=="student"):
+        addEmptyAssignment=stud(uid,"","","")
+        db.session.add(addEmptyAssignment)
     db.session.commit()
     return redirect("/admin")
 
@@ -92,10 +94,22 @@ def signed():
         db.session.add(add_details)
         db.session.commit()
         flash("Successfully Registered")
-        return render_template("sl.html")
+        return render_template("login.html")
     else:
         flash("ID Exists")
         return render_template("signin.html")
+
+@app.route("/remstu" ,methods = ['POST', 'GET'])
+def remstu():
+    all_details = auto.query.filter_by(role="student")
+    lens = auto.query.filter_by(role="student").count()
+    return render_template("remstu.html",all_detail=all_details,len=lens)
+
+@app.route("/deldata",methods = ['POST', 'GET'])
+def deldata():
+    stud.query.filter_by(id=request.form["userid"]).delete()
+    db.session.commit()
+    return redirect("/viewtea")
 
 @app.route('/loged',methods = ['POST', 'GET'])
 def loged():
@@ -103,50 +117,68 @@ def loged():
         uname = request.form["uid"]
         passw = request.form["upw"]
         login = auto.query.filter_by(userid=uname,password=passw).first()
-        #print(uname,passw,login)
         if login is not None:
-            if(login.role=='student'):
-                return render_template("home.html",uname=uname)
-            elif(login.role=='teacher'):
-                return redirect("/viewtea")
-            elif(login.role=='NULL'):
-                flash("You are not verified by admin please wait for a day!")
-                return redirect("/login")
-            return redirect("/admin")
+                if(login.role=='student' ):
+                    if db.session.query(db.exists().where(stud.id==uname)).scalar() == True:
+                        temp=stud.query.filter_by(id=uname).first()
+                        if(len(temp.file_name)!=0):
+                            flash("Already uploaded")
+                            return render_template("success.html")
+                        else:
+                            return  render_template("home.html",uname=uname)
+                    else:
+                        return render_template("home.html",uname=uname)
+                elif(login.role=='teacher'):
+                    return redirect("/viewtea")
+                elif(login.role=='NULL'):
+                    flash("You are not verified by admin please wait for a day!")
+                    return redirect("/login")
+                return redirect("/admin")
         else:
             flash("Incorrect ID or PASSWORD")
             return redirect("/login")
 
 
+@app.route("/delstu",methods=['POST', 'GET'])
+def delstu():
+    auto.query.filter_by(userid=request.form["userid"]).delete()
+    stud.query.filter_by(id=request.form["userid"]).delete()
+    db.session.commit()
+    return redirect("/remstu")
 
-
+    
 @app.route('/viewtea', methods = ['POST', 'GET'])
 def wiewtea():
     all_details = stud.query.all()
-    return render_template("viewtea.html",all_detail=all_details)
+    lens=stud.query.filter().count()
+    return render_template("viewtea.html",all_detail=all_details,len=lens)
 
 @app.route('/upload', methods = ['POST', 'GET'])
 def upload():
-    try:
-        if request.method == 'POST':
-            uploaded_files = request.files.getlist("file")
-            userid = request.form["userid"]
-            fileslen = len(uploaded_files)
-            #print(fileslen)
-            for files in uploaded_files:
-                text = ((files.read().decode('utf-8','strict').replace("\n"," ").replace("\r"," ")).lower()) 
-                tokens_o=word_tokenize(text)
-                tokens_o = [token.lower() for token in tokens_o]
-                sent_o=sent_tokenize(text)[0]
-                #print(sent_o) 
-                upload = stud(id=userid, file_name = files.filename,tokens = " ".join(tokens_o),sent = sent_o)
-                db.session.add(upload)
-                db.session.commit()
-            flash("files uploaded successfully")
-            return render_template("success.html")
-    except:
-        flash("Already uploaded")
+    #try:
+    if request.method == 'POST':
+        uploaded_files = request.files.getlist("file")
+        print(uploaded_files)
+        userid = request.form["userid"]
+        print(userid)
+        for files in uploaded_files:
+            text = ((files.read().decode('utf-8','strict').replace("\n"," ").replace("\r"," ")).lower()) 
+            tokens_o=word_tokenize(text)
+            tokens_o = [token.lower() for token in tokens_o]
+            sent_o=sent_tokenize(text)[0]
+            #print(sent_o) 
+            stude = stud.query.filter_by(id=userid).first()
+            print(stude)
+            print(stude.file_name)
+            stude.file_name = files.filename
+            stude.tokens = " ".join(tokens_o)
+            stude.sent = sent_o
+            db.session.commit()
+        flash("files uploaded successfully")
         return render_template("success.html")
+    # except:
+    #     flash("Already uploaded")
+    #     return render_template("success.html")
 
 # @app.route('/view',methods = ['POST', 'GET'])
 # def view():
@@ -201,7 +233,8 @@ def plag():
         else:
             copy[parent[i]]=l1
     #print(copy.items())
-    return render_template("report.html",copy=copy.items())
+    lens=stud.query.filter().count()
+    return render_template("report.html",copy=copy.items(),len=lens)
 
 def lcs(l1,l2):
     # storing the dp values 
@@ -227,9 +260,6 @@ def delete():
     db.session.commit()
     return redirect('/')
 
-@app.route('/tnx')
-def thank():
-    return render_template("thank.html")
 
 if __name__ == "__main__":
     app.run(debug = True)
