@@ -7,6 +7,7 @@ from nltk.tokenize import word_tokenize
 from nltk.tokenize import sent_tokenize
 
 from nltk.corpus import stopwords
+import string
 
 app = Flask(__name__)
 # run_with_ngrok(app) 
@@ -19,8 +20,8 @@ db = SQLAlchemy(app)
 class stud(db.Model):
     id = db.Column(db.String(100),primary_key = True)
     file_name = db.Column(db.String(100),nullable = False)
-    tokens = db.Column(db.String(10000),nullable = False)
-    sent = db.Column(db.String(10000),nullable = False)
+    tokens = db.Column(db.String(1000000000000000),nullable = False)
+    sent = db.Column(db.String(1000000000000000),nullable = False)
     def __init__(self,id,file_name,tokens,sent):
         self.id = id
         self.file_name =file_name 
@@ -162,22 +163,27 @@ def wiewtea():
 def upload():
     #try:
     if request.method == 'POST':
-        uploaded_files = request.files.getlist("file")
+        #uploaded_files = request.files.getlist("file")
         
         userid = request.form["userid"]
-        
-        for files in uploaded_files:
-            text = ((files.read().decode('utf-8','strict').replace("\n"," ").replace("\r"," ")).lower()) 
-            tokens_o=word_tokenize(text)
-            tokens_o = [token.lower() for token in tokens_o]
-            sent_o=sent_tokenize(text)[0]
-            #print(sent_o) 
-            stude = stud.query.filter_by(id=userid).first()
-  
-            stude.file_name = files.filename
-            stude.tokens = " ".join(tokens_o)
-            stude.sent = sent_o
-            db.session.commit()
+        files = request.files['file']
+        #for files in uploaded_files:
+        textt = ((files.read().decode('utf-8','strict').replace("\n"," ").replace("\r"," ")).lower()) 
+        text = ((textt.translate(str.maketrans("","",string.punctuation))).lower()) 
+
+        tokens_o=word_tokenize(text)
+        tokens_o = [token.lower() for token in tokens_o if token != "."]
+        sent_o=sent_tokenize(text)[0]
+        #print(sent_o) 
+        stude = stud.query.filter_by(id=userid).first()
+
+        stude.file_name = files.filename
+        stude.tokens = " ".join(tokens_o)
+        stude.sent = sent_o
+        db.session.commit()
+        #print("text : ",text)
+        #print("tokens_o ",tokens_o)
+        #print("sent_o : ",sent_o)
         flash("files uploaded successfully")
         return render_template("success.html")
     # except:
@@ -196,6 +202,7 @@ def plag():
     d = {}
     for detail in all_details:
         d[detail.id] = detail.tokens.replace("  "," ").split(" ")
+        
     #print("d ",d)
     parent =[]
     for i in (d.keys()):
