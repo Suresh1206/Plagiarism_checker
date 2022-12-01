@@ -3,6 +3,7 @@ from flask_sqlalchemy import SQLAlchemy
 import nltk
 # from flask_ngrok import run_with_ngrok
 nltk.download("punkt")
+nltk.download("stopwords")
 from nltk.tokenize import word_tokenize
 from nltk.tokenize import sent_tokenize
 
@@ -44,19 +45,32 @@ class auto(db.Model):
 def home():
     return render_template("main.html")
 
-@app.route("/uploadd")
-def uploadd():
-    return render_template("home.html")
 
 @app.route("/reqdata",methods=['POST'])
 def viewdata():
     uid = request.form["userid"]
     data = stud.query.filter_by(id = uid)
     return render_template("viewdata.html",sdata = data)
+
+@app.route("/reqtwodatas",methods=['POST'])
+def viewtwodata():
+    uid1 = request.form["userid1"]
+    uid2 = request.form["userid2"]
+    data1 = stud.query.filter_by(id = uid1)
+    data2 = stud.query.filter_by(id = uid2)
+    list1=data1[0].sent.split(" ")
+    list2=data2[0].sent.split(" ")
+    list3=[val for val in list1 if val in list2]
+    for i in range(len(list1)):
+        if list1[i] in list3:
+            list1[i]="<mark style='background-color: yellow'>"+list1[i]+"</mark>"
+    for i in range(len(list2)):
+        if list2[i] in list3:
+            list2[i]="<mark style='background-color: yellow'>"+list2[i]+"</mark>"
+    print(" ".join(list1)," ".join(list2))
+    return render_template("viewtwodatas.html",sdata1 = data1,sent1=" ".join(list1),sdata2 = data2, sent2=" ".join(list2))
      
 
-def uploadd():
-    return render_template("home.html")
 
 @app.route('/sign')
 def sign():
@@ -170,9 +184,14 @@ def upload():
         #for files in uploaded_files:
         textt = ((files.read().decode('utf-8','strict').replace("\n"," ").replace("\r"," ")).lower()) 
         text = ((textt.translate(str.maketrans("","",string.punctuation))).lower()) 
-
         tokens_o=word_tokenize(text)
+        text = text.split(" ")
+        stop_words = set(stopwords.words("english"))
         tokens_o = [token.lower() for token in tokens_o if token != "."]
+        tokens_o = [w for w in tokens_o if not w in stop_words]
+        #print(tokens_o)
+        text = [w for w in text if not w in stop_words]
+        text = " ".join(text)
         sent_o=sent_tokenize(text)[0]
         #print(sent_o) 
         stude = stud.query.filter_by(id=userid).first()
@@ -186,15 +205,6 @@ def upload():
         #print("sent_o : ",sent_o)
         flash("files uploaded successfully")
         return render_template("success.html")
-    # except:
-    #     flash("Already uploaded")
-    #     return render_template("success.html")
-
-# @app.route('/view',methods = ['POST', 'GET'])
-# def view():
-#     all_details = stud.query.all()
-#     return render_template("view.html",all_detail=all_details)
-
 
 @app.route('/plag',methods = ['POST', 'GET'])
 def plag():
@@ -236,7 +246,7 @@ def plag():
                 #print(sum_lcs,len(d[parent[j]]),(d[parent[j]]))
                 score=sum_lcs/len(d[parent[j]])
                 #print("score : ",score)
-                if(score>0.5):#j,i
+                if(score>0.25):#j,i
                     l1.append([parent[j],(score)])
                     #print("l1 :",l1)
         if(len(l1)==0):
@@ -249,6 +259,7 @@ def plag():
 
 def lcs(l1,l2):
     # storing the dp values 
+    # print(l1,l2)
     s1=word_tokenize(l1)
     
     s2=word_tokenize(l2)

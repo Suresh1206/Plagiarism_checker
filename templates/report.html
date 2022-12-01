@@ -22,9 +22,21 @@
     <tr style = "text-align: center;">
         <td rowspan={{ each[1]|length }}>{{ each[0] }}</td> 
         {% for e in each[1] %}
-        
             <td style='text-align:center; vertical-align:middle'>{{ e[0] }}</td>  
-            <td style='text-align:center; vertical-align:middle'>{{'%0.2f'|format( e[1]*100 )}}</td>  
+
+            {% if e[0]!=0 %}
+            <td style='text-align:center; vertical-align:middle'>
+                <form action="/reqtwodatas" method="POST">
+                    <input type="text" name="userid1" value = {{ each[0] }} hidden readonly/>
+                    <input type="text" name="userid2" value = {{ e[0] }} hidden readonly/>
+                    <button type="submit" class="btn btn-primary">{{'%0.2f'|format( e[1]*100 )}}</button>
+                </form>
+            </td> 
+            {%else%}
+            <td style='text-align:center; vertical-align:middle'>
+                {{'%0.2f'|format( e[1]*100 )}}
+            </td> 
+            {% endif %} 
         
     </tr>
     {% endfor %}
